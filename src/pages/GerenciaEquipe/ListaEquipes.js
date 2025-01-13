@@ -75,6 +75,7 @@ const ListaEquipes = () => {
                 }
             });
             setRows(rows.filter((row) => row.id !== id));
+            fetchEquipes();
             setFeedback({
                 open: true,
                 message: 'Time excluído com sucesso!',
@@ -180,29 +181,29 @@ const ListaEquipes = () => {
         setRowModesModel(newRowModesModel);
     };
 
-    useEffect(() => {
-        const fetchEquipes = async () => {
-            try {
-                const response = await axios.get('http://127.0.0.1:8000/api/times');
-                const data = response.data.map((item) => ({
-                    id: item.id,
-                    nome: item.nome || null,
-                    cidade: item.cidade || null,
-                    estadio: item.estadio || null,
-                }));
-                setRows(data);
-            } catch (error) {
-                console.error('Erro ao buscar os dados:', error);
-                setFeedback({
-                    open: true,
-                    message: 'Erro ao carregar os times',
-                    severity: 'error'
-                });
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchEquipes = async () => {
+        try {
+            const response = await axios.get('http://127.0.0.1:8000/api/times');
+            const data = response.data.map((item) => ({
+                id: item.id,
+                nome: item.nome || null,
+                cidade: item.cidade || null,
+                estadio: item.estadio || null,
+            }));
+            setRows(data);
+        } catch (error) {
+            console.error('Erro ao buscar os dados:', error);
+            setFeedback({
+                open: true,
+                message: 'Erro ao carregar os times',
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchEquipes();
     }, []);
 

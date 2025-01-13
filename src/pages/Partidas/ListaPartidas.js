@@ -28,17 +28,17 @@ function EditToolbar(props) {
 
     const handleClick = () => {
         console.log('Entrou');
-        const id = Math.floor(Math.random() * -1000000);  // Temporary random ID
+        const id = Math.floor(Math.random());  // Temporary random ID
         const newRow = {
             id,
             equipe1: '',
             equipe2: '',
             data: '',
-            golsEquipe1: 0, 
-            golsEquipe2: 0,  
+            golsEquipe1: 0,
+            golsEquipe2: 0,
             id_time_casa: null,
             id_time_visitante: null,
-            isNew: true  
+            isNew: true
         };
 
         // Adiciona a nova linha na lista de rows e filteredRows
@@ -60,12 +60,14 @@ function EditToolbar(props) {
         </GridToolbarContainer>
     );
 }
+
+
 const ListaPartidas = () => {
     const [rowModesModel, setRowModesModel] = useState({});
     const [rows, setRows] = useState([]);
     const [times, setTimes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [feedback, setFeedback] = useState({open: false, message: '', severity: 'success'});
+    const [feedback, setFeedback] = useState({ open: false, message: '', severity: 'success' });
     const [selectedTeam, setSelectedTeam] = useState('');
     const [filteredRows, setFilteredRows] = useState([]);
 
@@ -154,7 +156,6 @@ const ListaPartidas = () => {
 
     const processRowUpdate = async (newRow) => {
         try {
-            // Primeiro, vamos fazer um console.log para debug
             console.log('Dados da nova linha:', newRow);
             console.log(newRow.id_time_casa);
             console.log("aqui");
@@ -194,6 +195,7 @@ const ListaPartidas = () => {
                     message: 'Partida criada com sucesso!',
                     severity: 'success'
                 });
+                fetchPartidas();
 
                 return createdRow; // Retorna a linha atualizada com o ID real
             } else {
@@ -230,33 +232,35 @@ const ListaPartidas = () => {
         setRowModesModel(newRowModesModel);
     };
 
+
+    const fetchPartidas = async () => {
+        try {
+            const response = await axios.get("http://127.0.0.1:8000/api/partidas");
+            const data = response.data.map((item) => ({
+                id: item.id,
+                equipe1: item.time_casa.nome,
+                equipe2: item.time_visitante.nome,
+                id_time_casa: item.time_casa.id,
+                id_time_visitante: item.time_visitante.id,
+                data: formatDateToDisplay(item.data),
+                golsEquipe1: item.gols_time_casa,
+                golsEquipe2: item.gols_time_visitante,
+            }));
+            setRows(data);
+            setFilteredRows(data); // Inicializa filteredRows com todos os dados
+        } catch (error) {
+            console.error('Erro ao buscar os dados:', error);
+            setFeedback({
+                open: true,
+                message: 'Erro ao carregar as partidas',
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchPartidas = async () => {
-            try {
-                const response = await axios.get("http://127.0.0.1:8000/api/partidas");
-                const data = response.data.map((item) => ({
-                    id: item.id,
-                    equipe1: item.time_casa.nome,
-                    equipe2: item.time_visitante.nome,
-                    id_time_casa: item.time_casa.id,
-                    id_time_visitante: item.time_visitante.id,
-                    data: formatDateToDisplay(item.data),
-                    golsEquipe1: item.gols_time_casa,
-                    golsEquipe2: item.gols_time_visitante,
-                }));
-                setRows(data);
-                setFilteredRows(data); // Inicializa filteredRows com todos os dados
-            } catch (error) {
-                console.error('Erro ao buscar os dados:', error);
-                setFeedback({
-                    open: true,
-                    message: 'Erro ao carregar as partidas',
-                    severity: 'error'
-                });
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchPartidas();
     }, []);
 
@@ -274,7 +278,7 @@ const ListaPartidas = () => {
                     value={params.value || ''}
                     onChange={(e) => {
                         const timeSelected = times.find(t => t.nome === e.target.value);
-                        console.log(timeSelected.id)
+                        console.log("time", timeSelected.id)
                         params.api.setEditCellValue({
                             id: params.id,
                             field: 'equipe1',
@@ -283,7 +287,8 @@ const ListaPartidas = () => {
                         params.api.setEditCellValue({
                             id: params.id,
                             field: 'id_time_casa',
-                            value: timeSelected.id
+                            value: e.target.value
+                            // value: timeSelected.id
                         });
                     }}
                 >
@@ -316,7 +321,7 @@ const ListaPartidas = () => {
                         params.api.setEditCellValue({
                             id: params.id,
                             field: 'id_time_visitante',
-                            value: timeSelected.id
+                            value: e.target.value
                         });
                     }}
                 >
@@ -439,13 +444,7 @@ const ListaPartidas = () => {
             </Box>
 
             <Box
-                sx={{
-                    height: 600,
-                    width: '80%',
-                    m: 'auto',
-                    border: '1px solid #131428',
-                    borderRadius: '8px',
-                    mb: 3,
+                sx={{height: 600, width: '80%', m: 'auto', border: '1px solid #131428', borderRadius: '8px', mb: 3,
                     '& .MuiDataGrid-columnHeaders': {
                         bgcolor: '#aaafff',
                         color: '#131428',
@@ -468,12 +467,8 @@ const ListaPartidas = () => {
                     onRowModesModelChange={handleRowModesModelChange}
                     onRowEditStop={handleRowEditStop}
                     processRowUpdate={processRowUpdate}
-                    slots={{
-                        toolbar: EditToolbar,
-                    }}
-                    slotProps={{
-                        toolbar: { setRows, setRowModesModel, setFilteredRows }, // Adicione setFilteredRows
-                    }}
+                    slots={{toolbar: EditToolbar}}
+                    slotProps={{toolbar: { setRows, setRowModesModel, setFilteredRows }}}
                     initialState={{
                         pagination: {
                             paginationModel: { pageSize: 5 },

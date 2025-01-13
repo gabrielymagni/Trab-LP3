@@ -428,12 +428,6 @@ const ListaPartidas = () => {
         }
     };
 
-    
-
-
-
-
-
     return (
         <>
             <Grid2 item xs={12} md={9}>
@@ -494,7 +488,7 @@ const ListaPartidas = () => {
                     slotProps={{ toolbar: { setRows, setRowModesModel, setFilteredRows } }}
                     initialState={{
                         pagination: {
-                            paginationModel: { pageSize: 5 },
+                            paginationModel: { pageSize: 10 },
                         },
                     }}
                     pageSizeOptions={[5, 10, 15]}

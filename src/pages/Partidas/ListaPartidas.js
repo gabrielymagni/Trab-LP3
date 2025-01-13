@@ -5,66 +5,93 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Close';
-import {
-    GridRowModes,
-    DataGrid,
-    GridToolbarContainer,
-    GridActionsCellItem,
-    GridRowEditStopReasons,
-} from '@mui/x-data-grid';
-import {
-    randomCreatedDate,
-    randomTraderName,
-    randomId,
-    randomArrayItem,
-} from '@mui/x-data-grid-generator';
-import React from 'react'
-import { Grid2, Typography } from '@mui/material';
+import { GridRowModes, DataGrid, GridToolbarContainer, GridActionsCellItem, GridRowEditStopReasons } from '@mui/x-data-grid';
+import React, { useEffect, useState } from 'react';
+import { Alert, Grid2, Snackbar, Typography, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import axios from 'axios';
 
+const formatDateToDisplay = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR');
+};
 
-
-const initialRows = [
-    {
-        id: randomId(),
-        Equipe: randomTraderName(),
-        Cidade: 25,
-        Estádio: randomCreatedDate(),
-    },
-
-];
+const formatDateToAPI = (dateString) => {
+    if (!dateString) return '';
+    if (dateString.includes('-')) return dateString;
+    const [day, month, year] = dateString.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+};
 
 function EditToolbar(props) {
-    const { setRows, setRowModesModel } = props;
+    const { setRows, setRowModesModel, setFilteredRows } = props;
 
     const handleClick = () => {
-        const id = randomId();
-        setRows((oldRows) => [
-            ...oldRows,
-            { id, name: '', age: '', role: '', isNew: true },
-        ]);
+        console.log('Entrou');
+        const id = Math.floor(Math.random() * -1000000);  // Temporary random ID
+        const newRow = {
+            id,
+            equipe1: '',
+            equipe2: '',
+            data: '',
+            golsEquipe1: 0, 
+            golsEquipe2: 0,  
+            id_time_casa: null,
+            id_time_visitante: null,
+            isNew: true  
+        };
+
+        // Adiciona a nova linha na lista de rows e filteredRows
+        setRows((oldRows) => [newRow, ...oldRows]);
+        setFilteredRows((oldRows) => [newRow, ...oldRows]);
+
+        // Configura o modo de edição da nova linha
         setRowModesModel((oldModel) => ({
             ...oldModel,
-            [id]: { mode: GridRowModes.Edit, fieldToFocus: 'name' },
+            [id]: { mode: GridRowModes.Edit, fieldToFocus: 'equipe1' },
         }));
     };
 
     return (
         <GridToolbarContainer>
             <Button color="primary" startIcon={<AddIcon />} onClick={handleClick}>
-                Adicionar equipe
+                Adicionar Partida
             </Button>
         </GridToolbarContainer>
     );
 }
-
-
-
-
-
 const ListaPartidas = () => {
+    const [rowModesModel, setRowModesModel] = useState({});
+    const [rows, setRows] = useState([]);
+    const [times, setTimes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [feedback, setFeedback] = useState({open: false, message: '', severity: 'success'});
+    const [selectedTeam, setSelectedTeam] = useState('');
+    const [filteredRows, setFilteredRows] = useState([]);
 
-    const [rows, setRows] = React.useState(initialRows);
-    const [rowModesModel, setRowModesModel] = React.useState({});
+    const filterMatchesByTeam = (teamId) => {
+        if (!teamId) {
+            setFilteredRows(rows);
+        } else {
+            const filtered = rows.filter(row =>
+                row.id_time_casa === parseInt(teamId) ||
+                row.id_time_visitante === parseInt(teamId)
+            );
+            setFilteredRows(filtered);
+        }
+    };
+
+    useEffect(() => {
+        const fetchTimes = async () => {
+            try {
+                const response = await axios.get('http://127.0.0.1:8000/api/times');
+                setTimes(response.data);
+            } catch (error) {
+                console.error('Erro ao carregar times:', error);
+            }
+        };
+        fetchTimes();
+    }, []);
 
     const handleRowEditStop = (params, event) => {
         if (params.reason === GridRowEditStopReasons.rowFocusOut) {
@@ -80,8 +107,36 @@ const ListaPartidas = () => {
         setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.View } });
     };
 
-    const handleDeleteClick = (id) => () => {
-        setRows(rows.filter((row) => row.id !== id));
+    const handleDeleteClick = (id) => async () => {
+        if (!window.confirm('Tem certeza que deseja excluir esta partida?')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`http://127.0.0.1:8000/api/partidas/${id}`, {
+                withCredentials: true,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                    'Accept': 'application/json'
+                }
+            });
+
+            setRows(rows.filter((row) => row.id !== id));
+            setFilteredRows(filteredRows.filter((row) => row.id !== id)); // Atualiza também as linhas filtradas
+
+            setFeedback({
+                open: true,
+                message: 'Partida excluída com sucesso!',
+                severity: 'success'
+            });
+        } catch (error) {
+            console.error('Erro ao excluir a partida:', error);
+            setFeedback({
+                open: true,
+                message: 'Erro ao excluir a partida',
+                severity: 'error'
+            });
+        }
     };
 
     const handleCancelClick = (id) => () => {
@@ -91,57 +146,232 @@ const ListaPartidas = () => {
         });
 
         const editedRow = rows.find((row) => row.id === id);
-        if (editedRow.isNew) {
-            setRows(rows.filter((row) => row.id !== id));
+        if (editedRow?.isNew) {
+            setRows(prevRows => prevRows.filter(row => row.id !== id));
+            setFilteredRows(prevRows => prevRows.filter(row => row.id !== id));
         }
     };
 
-    const processRowUpdate = (newRow) => {
-        const updatedRow = { ...newRow, isNew: false };
-        setRows(rows.map((row) => (row.id === newRow.id ? updatedRow : row)));
-        return updatedRow;
+    const processRowUpdate = async (newRow) => {
+        try {
+            // Primeiro, vamos fazer um console.log para debug
+            console.log('Dados da nova linha:', newRow);
+            console.log(newRow.id_time_casa);
+            console.log("aqui");
+            const id1 = (times.find(t => t.nome === newRow.equipe1));
+            const id2 = (times.find(t => t.nome === newRow.equipe2));
+            // Preparar o payload conforme esperado pelo backend
+            const payload = {
+                id_time_casa: id1.id,
+                id_time_visitante: id2.id,
+                data: formatDateToAPI(newRow.data),
+                gols_time_casa: parseInt(newRow.golsEquipe1),
+                gols_time_visitante: parseInt(newRow.golsEquipe2)
+            };
+
+            console.log('Payload sendo enviado:', payload);
+
+            // Verifica se a linha é nova
+            if (newRow.isNew) {
+                const response = await axios.post('http://127.0.0.1:8000/api/partidas', payload, {
+                    withCredentials: true,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // Atualizar a linha com o ID real retornado do backend
+                const createdRow = {
+                    ...newRow,
+                    id: response.data.id,  // Use o ID retornado pela API
+                    isNew: false  // Marca a linha como não nova
+                };
+
+                setFeedback({
+                    open: true,
+                    message: 'Partida criada com sucesso!',
+                    severity: 'success'
+                });
+
+                return createdRow; // Retorna a linha atualizada com o ID real
+            } else {
+                console.log(payload)
+                await axios.put(`http://127.0.0.1:8000/api/partidas/${newRow.id}`, payload, {
+                    withCredentials: true,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                setFeedback({
+                    open: true,
+                    message: 'Partida atualizada com sucesso!',
+                    severity: 'success'
+                });
+
+                return { ...newRow, isNew: false };
+            }
+        } catch (error) {
+            console.error('Erro ao processar a linha:', error);
+            setFeedback({
+                open: true,
+                message: error.response?.data?.message || error.message || 'Erro ao processar os dados da partida.',
+                severity: 'error'
+            });
+            throw error;
+        }
     };
 
     const handleRowModesModelChange = (newRowModesModel) => {
         setRowModesModel(newRowModesModel);
     };
 
+    useEffect(() => {
+        const fetchPartidas = async () => {
+            try {
+                const response = await axios.get("http://127.0.0.1:8000/api/partidas");
+                const data = response.data.map((item) => ({
+                    id: item.id,
+                    equipe1: item.time_casa.nome,
+                    equipe2: item.time_visitante.nome,
+                    id_time_casa: item.time_casa.id,
+                    id_time_visitante: item.time_visitante.id,
+                    data: formatDateToDisplay(item.data),
+                    golsEquipe1: item.gols_time_casa,
+                    golsEquipe2: item.gols_time_visitante,
+                }));
+                setRows(data);
+                setFilteredRows(data); // Inicializa filteredRows com todos os dados
+            } catch (error) {
+                console.error('Erro ao buscar os dados:', error);
+                setFeedback({
+                    open: true,
+                    message: 'Erro ao carregar as partidas',
+                    severity: 'error'
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPartidas();
+    }, []);
 
     const columns = [
-        { field: 'name1', headerName: 'Equipe 1', width: 180, editable: true },
-        { field: 'name2', headerName: 'Equipe 2', width: 180, editable: true },
+        {
+            field: 'equipe1',
+            headerName: 'Time Casa',
+            width: 300,
+            editable: true,
+            align: 'center',
+            headerAlign: 'center',
+            renderEditCell: (params) => (
+                <Select
+                    fullWidth
+                    value={params.value || ''}
+                    onChange={(e) => {
+                        const timeSelected = times.find(t => t.nome === e.target.value);
+                        console.log(timeSelected.id)
+                        params.api.setEditCellValue({
+                            id: params.id,
+                            field: 'equipe1',
+                            value: e.target.value
+                        });
+                        params.api.setEditCellValue({
+                            id: params.id,
+                            field: 'id_time_casa',
+                            value: timeSelected.id
+                        });
+                    }}
+                >
+                    {times.map((time) => (
+                        <MenuItem key={time.id} value={time.nome}>
+                            {time.nome}
+                        </MenuItem>
+                    ))}
+                </Select>
+            )
+        },
+        {
+            field: 'equipe2',
+            headerName: 'Time Visitante',
+            width: 300,
+            editable: true,
+            align: 'center',
+            headerAlign: 'center',
+            renderEditCell: (params) => (
+                <Select
+                    fullWidth
+                    value={params.value || ''}
+                    onChange={(e) => {
+                        const timeSelected = times.find(t => t.nome === e.target.value);
+                        params.api.setEditCellValue({
+                            id: params.id,
+                            field: 'equipe2',
+                            value: e.target.value
+                        });
+                        params.api.setEditCellValue({
+                            id: params.id,
+                            field: 'id_time_visitante',
+                            value: timeSelected.id
+                        });
+                    }}
+                >
+                    {times.map((time) => (
+                        <MenuItem key={time.id} value={time.nome}>
+                            {time.nome}
+                        </MenuItem>
+                    ))}
+                </Select>
+            )
+        },
         {
             field: 'data',
             headerName: 'Data',
-            type: 'date',
-            width: 180,
-            align: 'left',
-            headerAlign: 'left',
-            editable: true,
-        },
-        {
-            field: 'gols1',
-            headerName: 'Gols Equipe 1',
             type: 'text',
-            width: 180,
-            align: 'left',
-            headerAlign: 'left',
+            width: 200,
             editable: true,
+            align: 'center',
+            headerAlign: 'center',
+            preProcessEditCellProps: (params) => ({
+                ...params.props,
+                error: params.props.value === ''
+            })
         },
         {
-            field: 'gols2',
-            headerName: 'Gols Equipe 2',
-            type: 'text',
-            width: 180,
-            align: 'left',
-            headerAlign: 'left',
+            field: 'golsEquipe1',
+            headerName: 'Gols Time Casa',
+            width: 200,
             editable: true,
+            type: 'number',
+            align: 'center',
+            headerAlign: 'center',
+            preProcessEditCellProps: (params) => ({
+                ...params.props,
+                error: params.props.value === ''
+            })
         },
         {
-            field: 'acoes',
+            field: 'golsEquipe2',
+            headerName: 'Gols Time Visitante',
+            width: 200,
+            editable: true,
+            type: 'number',
+            align: 'center',
+            headerAlign: 'center',
+            preProcessEditCellProps: (params) => ({
+                ...params.props,
+                error: params.props.value === ''
+            })
+        },
+        {
+            field: 'actions',
             type: 'actions',
-            headerName: '...',
-            width: 100,
+            headerName: 'Ações',
+            width: 200,
             cellClassName: 'actions',
             getActions: ({ id }) => {
                 const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
@@ -151,17 +381,12 @@ const ListaPartidas = () => {
                         <GridActionsCellItem
                             icon={<SaveIcon />}
                             label="Save"
-                            sx={{
-                                color: 'primary.main',
-                            }}
                             onClick={handleSaveClick(id)}
                         />,
                         <GridActionsCellItem
                             icon={<CancelIcon />}
                             label="Cancel"
-                            className="textPrimary"
                             onClick={handleCancelClick(id)}
-                            color="inherit"
                         />,
                     ];
                 }
@@ -170,121 +395,110 @@ const ListaPartidas = () => {
                     <GridActionsCellItem
                         icon={<EditIcon />}
                         label="Edit"
-                        className="textPrimary"
                         onClick={handleEditClick(id)}
-                        color="inherit"
                     />,
                     <GridActionsCellItem
                         icon={<DeleteIcon />}
                         label="Delete"
                         onClick={handleDeleteClick(id)}
-                        color="inherit"
                     />,
                 ];
             },
         },
     ];
 
-    const handleChangePage = (event, newPage) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
-
-
-    const [page, setPage] = React.useState(0);
-    const [rowsPerPage, setRowsPerPage] = React.useState(10);
-
     return (
         <>
-            <Grid2 item xs={12} md={12} sx={{ border: '1px solid #787878' }}>
-                <Typography sx={{ mt: 5, fontSize: '25px', textAlign: 'center' }}>
-                    Gerencimento de partidas
+            <Grid2 item xs={12} md={9}>
+                <Typography sx={{ fontSize: '30px', textAlign: 'center', mb: 3, color: '#131428', fontWeight: 'bold' }}>
+                    Gerenciamento de partidas
                 </Typography>
             </Grid2>
 
+            <Box sx={{ width: '50%', m: 'auto', mb: 3, mt: 3 }}>
+                <FormControl fullWidth>
+                    <InputLabel>Filtrar por Time</InputLabel>
+                    <Select
+                        value={selectedTeam}
+                        label="Filtrar por Time"
+                        onChange={(e) => {
+                            setSelectedTeam(e.target.value);
+                            filterMatchesByTeam(e.target.value);
+                        }}
+                    >
+                        <MenuItem value="">
+                            <em>Todos os times</em>
+                        </MenuItem>
+                        {times.map((time) => (
+                            <MenuItem key={time.id} value={time.id}>
+                                {time.nome}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            </Box>
+
             <Box
                 sx={{
-                    height: 500,
-                    width: '100%',
-                    '& .actions': {
-                        color: 'text.secondary',
+                    height: 600,
+                    width: '80%',
+                    m: 'auto',
+                    border: '1px solid #131428',
+                    borderRadius: '8px',
+                    mb: 3,
+                    '& .MuiDataGrid-columnHeaders': {
+                        bgcolor: '#aaafff',
+                        color: '#131428',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        borderBottom: '1px solid #131428',
                     },
-                    '& .textPrimary': {
-                        color: 'text.primary',
+                    '& .MuiDataGrid-cell': {
+                        backgroundColor: '#eef4d2',
+                        borderBottom: '1px solid #131428',
                     },
                 }}
             >
                 <DataGrid
-                    rows={rows}
+                    rows={filteredRows}
                     columns={columns}
                     editMode="row"
+                    loading={loading}
                     rowModesModel={rowModesModel}
                     onRowModesModelChange={handleRowModesModelChange}
                     onRowEditStop={handleRowEditStop}
                     processRowUpdate={processRowUpdate}
-                    slots={{ toolbar: EditToolbar }}
-                    slotProps={{
-                        toolbar: { setRows, setRowModesModel },
+                    slots={{
+                        toolbar: EditToolbar,
                     }}
+                    slotProps={{
+                        toolbar: { setRows, setRowModesModel, setFilteredRows }, // Adicione setFilteredRows
+                    }}
+                    initialState={{
+                        pagination: {
+                            paginationModel: { pageSize: 5 },
+                        },
+                    }}
+                    pageSizeOptions={[5, 10, 15]}
+                    getRowId={(row) => row.id} // Adicione esta linha
                 />
             </Box>
 
+            <Snackbar
+                open={feedback.open}
+                autoHideDuration={6000}
+                onClose={() => setFeedback({ ...feedback, open: false })}
+            >
+                <Alert
+                    onClose={() => setFeedback({ ...feedback, open: false })}
+                    severity={feedback.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {feedback.message}
+                </Alert>
+            </Snackbar>
         </>
-    )
-}
+    );
+};
 
-export default ListaPartidas
-
-
-const columns = [
-    { id: 'name', label: 'Name', minWidth: 170 },
-    { id: 'code', label: 'ISO\u00a0Code', minWidth: 100 },
-    {
-        id: 'population',
-        label: 'Population',
-        minWidth: 170,
-        align: 'right',
-        format: (value) => value.toLocaleString('en-US'),
-    },
-    {
-        id: 'size',
-        label: 'Size\u00a0(km\u00b2)',
-        minWidth: 170,
-        align: 'right',
-        format: (value) => value.toLocaleString('en-US'),
-    },
-    {
-        id: 'density',
-        label: 'Density',
-        minWidth: 170,
-        align: 'right',
-        format: (value) => value.toFixed(2),
-    },
-];
-
-function createData(name, code, population, size) {
-    const density = population / size;
-    return { name, code, population, size, density };
-}
-
-const rows = [
-    createData('India', 'IN', 1324171354, 3287263),
-    createData('China', 'CN', 1403500365, 9596961),
-    createData('Italy', 'IT', 60483973, 301340),
-    createData('United States', 'US', 327167434, 9833520),
-    createData('Canada', 'CA', 37602103, 9984670),
-    createData('Australia', 'AU', 25475400, 7692024),
-    createData('Germany', 'DE', 83019200, 357578),
-    createData('Ireland', 'IE', 4857000, 70273),
-    createData('Mexico', 'MX', 126577691, 1972550),
-    createData('Japan', 'JP', 126317000, 377973),
-    createData('France', 'FR', 67022000, 640679),
-    createData('United Kingdom', 'GB', 67545757, 242495),
-    createData('Russia', 'RU', 146793744, 17098246),
-    createData('Nigeria', 'NG', 200962417, 923768),
-    createData('Brazil', 'BR', 210147125, 8515767),
-];
+export default ListaPartidas;

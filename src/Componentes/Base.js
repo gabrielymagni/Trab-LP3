@@ -10,12 +10,10 @@ const Base = () => {
             maxWidth={false} // Permite que o Container use 100% da largura
             sx={{
                 flexGrow: 1,
-                border: '2px solid #fe0000',
-                width: '100%', // Garante 100% da largura
-                // height: '100vh', // Garante 100% da altura da tela
+                width: '100%',
                 padding: 0, 
                 margin: 0, 
-                marginTop: '10%',
+                marginTop: '7%',
             }}
         >
             <Header />

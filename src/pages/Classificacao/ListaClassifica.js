@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { styled } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -8,6 +8,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import { Box, Grid2, Typography } from '@mui/material';
+import axios from 'axios';
 
 const ListaClassifica = () => {
 
@@ -17,11 +18,13 @@ const ListaClassifica = () => {
             color: '#FFFFFF',
             fontWeight: 'bold',
             textAlign: 'center',
+            fontSize: '20px'
         },
         [`&.${tableCellClasses.body}`]: {
             fontSize: 14,
             backgroundColor: '#dbe2be',
             borderBottom: '1px solid #131428',
+            fontSize: '20px'
         },
     }));
 
@@ -36,36 +39,53 @@ const ListaClassifica = () => {
     }));
 
     const StyledTable = styled(Table)(() => ({
-        border: '2px solid #fe0000', // Adiciona uma borda ao redor da tabela
-        borderRadius: '8px', // Cantos arredondados (opcional)
-        overflow: 'hidden', // Garante que o conteúdo da tabela respeite a borda arredondada
+        border: '2px solid #fe0000',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        margin: 'auto', 
     }));
 
-    function createData(equipe, vitorias, empates, derrotas, golsmarc, golssofr, aprov) {
-        return { equipe, vitorias, empates, derrotas, golsmarc, golssofr, aprov };
-    }
 
-    const rows = [
-        createData('Frozen yoghurt', 159, 6.0, 24, 4.0, 24, 4.0),
-        createData('Ice cream sandwich', 237, 9.0, 37, 4.3, 24, 4.0),
-        createData('Eclair', 262, 16.0, 24, 6.0, 24, 4.0),
-        createData('Cupcake', 305, 3.7, 67, 4.3, 24, 4.0),
-        createData('Gingerbread', 356, 16.0, 49, 3.9, 24, 4.0),
-    ];
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchClassificacoes = async () => {
+            try {
+                const response = await axios.get("http://127.0.0.1:8000/api/classificacao?ano=2022");
+                const data = response.data.map((item) => ({
+                    equipe: item.time.nome,
+                    vitorias: item.vitorias,
+                    empates: item.empates,
+                    derrotas: item.derrotas,
+                    golsmarc: item.gols_pro,
+                    golssofr: item.gols_contra,
+                    aprov: ((item.vitorias + item.empates) / item.jogos * 100).toFixed(2), // Calcula o aproveitamento em porcentagem
+                }));
+                setRows(data);
+            } catch (error) {
+                console.error("Erro ao buscar os dados:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchClassificacoes();
+    }, []);
 
 
     return (
         <>
-            <Grid2 item xs={12} md={12} sx={{ border: '1px solid #787878' }}>
-                <Typography sx={{ mt: 5, fontSize: '25px', textAlign: 'center' }}>
-                    Classificações das equipes
+            <Grid2 item xs={12} md={9}>
+                <Typography sx={{ fontSize: '30px', textAlign: 'center', mb: 3, color: '#131428', fontWeight: 'bold' }}>
+                    Classificações
                 </Typography>
             </Grid2>
 
-            <Box sx={{ m: 'auto', display: 'flex' }}>
+            <Box >
                 <StyledTable>
                     <TableContainer component={Paper}>
-                        <Table sx={{ maxWidth: 850 }} aria-label="customized table">
+                        <Table sx={{ maxWidth: '1200px', m: 'auto', mb: 5, mt: 2}} aria-label="customized table">
                             <TableHead>
                                 <TableRow>
                                     <StyledTableCell>Equipes</StyledTableCell>

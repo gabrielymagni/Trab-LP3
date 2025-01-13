@@ -8,7 +8,7 @@ import ListaClassifica from "../pages/Classificacao/ListaClassifica";
 export const router = createBrowserRouter([
     {
         path: '/',
-        element: <ListaEquipes />,
+        element: <Navigate to="/brasileirao/equipes" replace />,
         children: []
     },
     {
@@ -20,6 +20,10 @@ export const router = createBrowserRouter([
         path: '/brasileirao',
         element: <Base />,
         children: [
+            {
+                index: true, // Rota padrão para /brasileirao
+                element: <Navigate to="equipes" replace />, // Redireciona para /brasileirao/equipes
+            },
             {
                 path: 'equipes',
                 element: <ListaEquipes />,

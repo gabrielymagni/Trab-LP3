@@ -58,8 +58,7 @@ const Header = () => {
                         >
                             <ToggleButton value="web" onClick={handleClickEquipes}>Equipes</ToggleButton>
                             <ToggleButton value="android" onClick={handleClickClass}>Classificações</ToggleButton>
-                            <ToggleButton value="android" onClick={handleClickPartidas}>Partidas</ToggleButton>
-                            <ToggleButton value="ios" >Jogos</ToggleButton>
+                            <ToggleButton value="ios" onClick={handleClickPartidas}>Partidas</ToggleButton>
                             {/* filter */}
                         </ToggleButtonGroup>
 
